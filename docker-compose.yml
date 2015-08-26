@@ -1,0 +1,12 @@
+server:
+    build: ./server
+    ports:
+        - "1099"
+        - "9901"
+client:
+    build: ./client
+    ports:
+        - "1099"
+        - "9901"
+volumes:
+        - ./data:/tmp

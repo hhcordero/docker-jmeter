@@ -1,0 +1,31 @@
+#!/bin/bash
+exec >> /var/log/jmeter-client.log 2>&1
+set -x
+
+#FreeMem=`awk '/MemFree/ { print int($2/1024) }' /proc/meminfo`
+#s=$(($FreeMem/10*8))
+#x=$(($FreeMem/10*8))
+#n=$(($FreeMem/10*2))
+#export JVM_ARGS="-Xmn${n}m -Xms${s}m -Xmx${x}m"
+
+export RMI_HOST_DEF=-Djava.rmi.server.hostname=`ifconfig | grep -A1 eth | awk -F "[ :]+" '/inet / {print $4}'`
+
+# Configure aws cli profile
+aws configure <<HEREDOC
+$ACCESS_KEY
+$SECRET_KEY
+$REGION
+json
+HEREDOC
+
+# Get server ip's
+aws sqs receive-message --queue-url $QUEUE_URL --max-number-of-messages 10 > /tmp/msgs.txt
+
+grep -Po '(?<="Body": ")[^"]*' /tmp/msgs.txt | uniq | paste -s -d "," > /tmp/nodes.txt
+
+servers=$(cat /tmp/nodes.txt)
+
+sed -i '/remote_hosts=127.0.0.1/ c\
+remote_hosts='$servers'' $JMETER_BIN/jmeter.properties
+
+$JMETER_BIN/jmeter -n -t $TEST_PLAN -R $servers

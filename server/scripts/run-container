@@ -1,0 +1,23 @@
+#!/bin/bash
+exec >> /var/log/jmeter-server.log 2>&1
+set -x
+
+ip=$(ifconfig | grep -A1 eth | awk -F "[ :]+" '/inet / {print $4}')
+
+export RMI_HOST_DEF=-Djava.rmi.server.hostname=$ip
+
+# Configure aws cli profile
+aws configure <<HEREDOC
+$ACCESS_KEY
+$SECRET_KEY
+$REGION
+json
+HEREDOC
+
+# Register node
+aws sqs send-message --queue-url $QUEUE_URL --message-body $ip
+
+# Run jmeter
+$JMETER_BIN/jmeter-server \
+    -Dclient.rmi.localport=${RMI_CLIENT_PORT} \
+    -Dserver.rmi.localport=${RMI_SERVER_PORT}
